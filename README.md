@@ -30,8 +30,8 @@ pmdarima~=2.0.3
 
 ## Dataset
 
-The wind speed data is from [https://www.nrel.gov/wind/data-tools.html](National Renewable Energy Laboratory), 
-you can download it from [https://pan.baidu.com/s/1XJf4pzF--bIv3iVlFFh4Gw?pwd=sker ](here)
+The wind speed data is from [National Renewable Energy Laboratory](https://www.nrel.gov/wind/data-tools.html), 
+you can download it from [here](https://pan.baidu.com/s/1XJf4pzF--bIv3iVlFFh4Gw?pwd=sker).
 
 ## Run
 
