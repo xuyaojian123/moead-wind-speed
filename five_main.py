@@ -76,17 +76,10 @@ def main():
     models = []
     for i in range(0, vmd_k):
         print(f"《《---------------------------训练第{i+1}个模型-----------------------------》》")
-        # hurst_value = calcHurst2(u[i])
-        if i == 0:
-            hurst_value = 0.8
-        elif i % 2 == 0:
-            hurst_value = 0.1
-        else:
-            hurst_value = 0.4
-
-        if 0 <= hurst_value < 0.4:
+        hurst_value = calcHurst2(u[i])
+        if 0 <= hurst_value < 0.3:
             flag = 1
-        elif 0.4 <= hurst_value < 0.6:
+        elif 0.3 <= hurst_value < 0.6:
             flag = 2
         else:
             flag = 3
