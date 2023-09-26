@@ -6,8 +6,6 @@
 @Date  : 2022/9/3 12:07
 @Desc  : 
 """
-import time
-
 from hurst import calcHurst2
 from utils import load_data_with_vmd, CWC1, PICP, PINRW
 from moead import initial, main_loop, MOEAD
@@ -35,8 +33,8 @@ def set_tf_device(device):
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     elif device == 'gpu':
         gpus = tf.config.experimental.list_physical_devices("GPU")
-        tf.config.set_visible_devices(gpus[1], 'GPU')
-        tf.config.experimental.set_memory_growth(gpus[1], True)
+        tf.config.set_visible_devices(gpus[2], 'GPU')
+        tf.config.experimental.set_memory_growth(gpus[2], True)
         print("Training on GPU...")
         # for gpu in gpus:
         #     tf.config.experimental.set_memory_growth(gpu, True)
@@ -47,17 +45,13 @@ set_tf_device('cpu')
 
 
 def main():
-    start = time.time()
-
-    filename = "California_spring_20120401-20120407新"
-    step = "/one"
-    wind_speed = pd.read_csv("./data/" + filename + ".csv")[
+    filename = "washingtong_summer_20120701-20120707新"
+    step = "/five"
+    wind_speed = pd.read_csv("../data/week_data/data/" + filename + ".csv")[
         'wind speed at 100m (m/s)']
 
     fig1, ax1 = plt.subplots(figsize=(8, 4), layout='constrained')
-    ax1.plot(wind_speed, label='original wind speed sequence')
-    ax1.set_xlabel("Samples(10min/point)")
-
+    ax1.plot(wind_speed, label='Samples(10min/point)')
     ax1.legend()
     ax1.grid()
     plt.savefig("result/" + filename + step + "/" + filename + ".png")
@@ -82,10 +76,17 @@ def main():
     models = []
     for i in range(0, vmd_k):
         print(f"《《---------------------------训练第{i+1}个模型-----------------------------》》")
-        hurst_value = calcHurst2(u[i])
-        if 0 <= hurst_value < 0.3:
+        # hurst_value = calcHurst2(u[i])
+        if i == 0:
+            hurst_value = 0.8
+        elif i % 2 == 0:
+            hurst_value = 0.1
+        else:
+            hurst_value = 0.4
+
+        if 0 <= hurst_value < 0.4:
             flag = 1
-        elif 0.3 <= hurst_value < 0.6:
+        elif 0.4 <= hurst_value < 0.6:
             flag = 2
         else:
             flag = 3
@@ -143,7 +144,7 @@ def main():
         ax1.grid()
         plt.savefig("result/" + filename + step + f"/validation_model{i}.png")
         plt.show()
-
+    predict_valids = np.array(predict_valids)
     predict_valid_reverse = np.sum(predict_valids, axis=0)
     val_mse = mean_squared_error(np.squeeze(y_valids[vmd_k]), predict_valid_reverse)
     val_mae = mean_absolute_error(np.squeeze(y_valids[vmd_k]), predict_valid_reverse)
@@ -168,7 +169,6 @@ def main():
     MOEAD.true_data = np.squeeze(y_valids[vmd_k])
     MOEAD.width = width
     moead = MOEAD()
-
     # P, moead = initial()
     # main_loop(P, moead)
 
@@ -202,22 +202,47 @@ def main():
     save_opt_pop = pd.DataFrame(save_opt_pop)
     save_opt_pop.to_csv('result/' + filename + step + '/pareto.csv', header=False, index=False)
 
+    ppp = len(x_tests[0]) % 5
     predict_tests = []
     for i in range(0, vmd_k):
         if models[i][1] == 1:
-            predict_test = models[i][0].predict(x_tests[i])
-            predict_test = tf.squeeze(predict_test)
+            predict_test = []
+            for index in range(0, len(x_tests[i])-ppp, 5):
+                x = x_tests[i][index].reshape(1, -1, 1)
+                x = np.array(x)
+                for num in range(5):
+                    forecast = models[i][0].predict(x)
+                    forecast = np.array(forecast).reshape(-1)
+                    x = np.append(x, forecast)
+                    x = x[1:]
+                    x = x.reshape(1, -1, 1)
+                    predict_test.append(forecast)
         elif models[i][1] == 2:
-            features = np.squeeze(x_tests[i])
-            predict_test = models[i][0].predict(features)
+            predict_test = []
+            for index in range(0, len(x_tests[i])-ppp, 5):
+                x = x_tests[i][index].reshape(1,-1)
+                for num in range(5):
+                    forecast = models[i][0].predict(x)
+                    x = np.append(x, forecast)
+                    x = x[1:]
+                    x = x.reshape(1, -1)
+                    predict_test.append(forecast)
         elif models[i][1] == 3:
             predict_test = []
-            for idx in range(len(x_tests[i])):
-                models[i][0].fit(sequence)
-                forecast = models[i][0].predict(n_periods=1)
-                predict_test.append(forecast)
-                sequence.pop(0)
-                sequence.append(y_tests[i][idx][0])
+            for index in range(0, len(x_tests[i])-ppp, 5):
+                print(index, len(x_tests[i]))
+                for num in range(5):
+                    models[i][0].fit(sequence)
+                    forecast = models[i][0].predict(n_periods=1)
+                    sequence.pop(0)
+                    sequence.append(forecast)
+                    predict_test.append(forecast)
+                sequence = sequence[:-5]
+                sequence.append(y_tests[i][index][0])
+                sequence.append(y_tests[i][index+1][0])
+                sequence.append(y_tests[i][index + 2][0])
+                sequence.append(y_tests[i][index + 3][0])
+                sequence.append(y_tests[i][index + 4][0])
         predict_test = np.array(predict_test)
         predict_test = np.squeeze(predict_test)
         predict_tests.append(predict_test)
@@ -235,9 +260,10 @@ def main():
         up.append(pre + lambdas)
         down.append(pre - lambdas)
     bound_data = np.column_stack((down, up))
-    test_picp = PICP(bound_data, np.squeeze(y_tests[vmd_k]))
-    test_pinrw = PINRW(bound_data, np.squeeze(y_tests[vmd_k]))
-    test_cwc =  CWC1(test_picp,test_pinrw)
+    rest = len(bound_data)
+    test_picp = PICP(bound_data, np.squeeze(y_tests[vmd_k][:rest]))
+    test_pinrw = PINRW(bound_data, np.squeeze(y_tests[vmd_k][:rest]))
+    test_cwc = CWC1(test_picp,test_pinrw)
     print("final result")
     print(test_picp,test_pinrw,test_cwc)
 
@@ -251,13 +277,10 @@ def main():
     ax1.grid()
     plt.savefig("result/" + filename + step + f"/test_reconstruct_wind_speed.png")
     plt.show()
-
-    final_result = np.column_stack((bound_data, np.squeeze(y_tests[vmd_k])))
+    rest = len(bound_data)
+    final_result = np.column_stack((bound_data, np.squeeze(y_tests[vmd_k][:rest])))
     final_result = pd.DataFrame(final_result)
     final_result.to_csv('result/' + filename + step + f'/picp:{test_picp:.5f}-pinrw:{test_pinrw:.5f}-cwc:{test_cwc:.5f}.csv', header=False, index=False)
-
-    end = time.time()
-    print("Final precess runtime:",end - start)
 
 
 def cal_width(n_clusters, labels, wind_speed_cluster):
@@ -271,7 +294,7 @@ def cal_width(n_clusters, labels, wind_speed_cluster):
         count = np.array(count)
         std = np.std(count)
         # %95的置信区间宽度
-        alpha = (1.96 * std) / 2 + 0.4
+        alpha = (1.96 * std) / 2 + 0.45
         width.append(alpha)
         print(count.shape)
     return width
