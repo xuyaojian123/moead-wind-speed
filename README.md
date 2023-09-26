@@ -4,6 +4,8 @@ This paper proposes a cluster-based short-term wind speed interval prediction wi
 
 ## FrameWork
 
+<img src=".\images\img.png" style="zoom: 80%;" />
+
 First we extract statistical information from the original wind speed sequence
 
 Next, we decompose the original sequence by VMD and obtain HE values for the subsequences to match the model training.
@@ -11,10 +13,6 @@ Next, we decompose the original sequence by VMD and obtain HE values for the sub
 After that, we use the multi-objective algorithm MOEA/D to find the optimal superposition weights of each subsequence to get the point prediction results.
 
 Finally, K-means determines which group the point prediction belongs to, and adds the corresponding estimated width $\lambda$ to get the final interval prediction.
-
-<img src=".\images\img.png" style="zoom: 80%;" />
-
-
 
 ## Requirements
 
